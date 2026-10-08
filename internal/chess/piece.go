@@ -1,14 +1,14 @@
 package chess
 
 type square struct {
-	file byte
-	rank byte
+	file uint8
+	rank uint8
 }
 
-type pType byte
+type kind byte
 
 const (
-	king pType = iota
+	king kind = iota
 	pawn
 	queen
 	rook
@@ -24,8 +24,8 @@ const (
 )
 
 type piece struct {
-	pType      pType
-	color      color
-	isCaptured bool
-	square     square
+	kind     kind
+	color    color
+	Captured bool
+	square   square
 }

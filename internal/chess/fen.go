@@ -3,6 +3,7 @@ package chess
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -101,30 +102,32 @@ var segmentSizeBorders = [FenSegments][2]int{
 	fullmoveCnt:   {1, 4},
 }
 
-const enPassantSegments = 2
+var enPassantLetterSegmentAllowedChars = map[rune]bool{
+	'a': true,
+	'b': true,
+	'c': true,
+	'd': true,
+	'e': true,
+	'f': true,
+	'g': true,
+	'h': true,
+}
 
-type enPassantSegmentType byte
+const maxHalfmoveClock = 150
 
-const (
-	letter enPassantSegmentType = iota
-	number
-)
+const minFullmoveCnt = 1
+const maxFullmoveCnt = 8849 // https://tomrocksmaths.com/wp-content/uploads/2026/06/longestchessgame-katie-cam.pdf
 
-var enPassantSegmentAllowedChars = [enPassantSegments]map[rune]bool{
-	letter: {
-		'a': true,
-		'b': true,
-		'c': true,
-		'd': true,
-		'e': true,
-		'f': true,
-		'g': true,
-		'h': true,
-	},
-	number: {
-		'3': true,
-		'6': true,
-	},
+type pieceDesc struct {
+	kind  kind
+	color color
+}
+
+var pieceByChar = map[rune]pieceDesc{
+	'K': {king, white}, 'Q': {queen, white}, 'R': {rook, white},
+	'B': {bishop, white}, 'N': {knight, white}, 'P': {pawn, white},
+	'k': {king, black}, 'q': {queen, black}, 'r': {rook, black},
+	'b': {bishop, black}, 'n': {knight, black}, 'p': {pawn, black},
 }
 
 func DecodeFen(fen string) (Position, error) {
@@ -155,13 +158,15 @@ func DecodeFen(fen string) (Position, error) {
 
 	position := Position{}
 
-	if activeColorSegment[0] == 'w' {
+	// activeColor
+	switch activeColorSegment[0] {
+	case 'w':
 		position.activeColor = white
-	}
-	if activeColorSegment[0] == 'b' {
+	case 'b':
 		position.activeColor = black
 	}
 
+	// castling
 	if strings.IndexRune(castlingSegment, '-') != -1 {
 		if len(castlingSegment) > 1 {
 			return Position{}, errors.New("castling segment contains '-', in that case that must be the only character")
@@ -171,17 +176,26 @@ func DecodeFen(fen string) (Position, error) {
 		switch c {
 		case 'K':
 			if position.whiteCastleKing {
-				return Position{}, errors.New("castling segment containts 'K' more than once")
+				return Position{}, errors.New("castling segment contains 'K' more than once")
+			}
+			if position.whiteCastleQueen || position.blackCastleKing || position.blackCastleQueen {
+				return Position{}, errors.New("'K' is not in a right order, right order for castling segment \"KQkq\"")
 			}
 			position.whiteCastleKing = true
 		case 'Q':
 			if position.whiteCastleQueen {
 				return Position{}, errors.New("castling segment contains 'Q' more than once")
 			}
+			if position.blackCastleKing || position.blackCastleQueen {
+				return Position{}, errors.New("'Q' is not in a right order, right order for castling segment \"KQkq\"")
+			}
 			position.whiteCastleQueen = true
 		case 'k':
 			if position.blackCastleKing {
 				return Position{}, errors.New("castling segment contains 'k' more than once")
+			}
+			if position.blackCastleQueen {
+				return Position{}, errors.New("'k' is not in a right order, right order for castling segment \"KQkq\"")
 			}
 			position.blackCastleKing = true
 		case 'q':
@@ -192,6 +206,7 @@ func DecodeFen(fen string) (Position, error) {
 		}
 	}
 
+	// enPassant
 	if strings.IndexRune(enPassantSegment, '-') != -1 {
 		if len(enPassantSegment) > 1 {
 			return Position{}, errors.New("enPassant segment contains '-', in that case that must be the only character")
@@ -200,16 +215,84 @@ func DecodeFen(fen string) (Position, error) {
 		if len(enPassantSegment) == 1 {
 			return Position{}, errors.New("enPassantSegment did not contain '-', so its length must be 2")
 		}
+		letterSegment := enPassantSegment[0]
+		numberSegment := enPassantSegment[1]
+		if !enPassantLetterSegmentAllowedChars[rune(letterSegment)] {
+			return Position{}, errors.New("enPassant letter segment contains invalid characters")
+		}
+		switch numberSegment {
+		case '3':
+			if position.activeColor == white {
+				return Position{}, errors.New("last move was black, so enPassant rank must be 6")
+			}
+		case '6':
+			if position.activeColor == black {
+				return Position{}, errors.New("last move was white, so enPassant rank must be 3")
+			}
+		default:
+			return Position{}, errors.New("enPassant number segment contains invalid characters")
+		}
+		position.enPassantSquare = square{
+			file: letterSegment - 'a',
+			rank: '8' - numberSegment,
+		}
 	}
-	letterSegment := enPassantSegment[0]
-	numberSegment := enPassantSegment[1]
-	if !enPassantSegmentAllowedChars[letter][rune(letterSegment)] {
-		return Position{}, errors.New("enPassant letter segment contains invalid characters")
+
+	// halfmoveClock
+	halfmoveClockNum, err := strconv.ParseUint(halfmoveClockSegment, 10, 8)
+	if err != nil || halfmoveClockNum > maxHalfmoveClock {
+		return Position{}, fmt.Errorf("halfmoveClock out of bounds 0-%d", maxHalfmoveClock)
 	}
-	if !enPassantSegmentAllowedChars[number][rune(numberSegment)] {
-		return Position{}, errors.New("enPassant number segment contains invalid characters")
+	position.halfmoveClock = uint8(halfmoveClockNum)
+
+	// fullmoveCnt
+	fullmoveCntNum, err := strconv.ParseUint(fullmoveCntSegment, 10, 16)
+	if err != nil || fullmoveCntNum < minFullmoveCnt || fullmoveCntNum > maxFullmoveCnt {
+		return Position{}, fmt.Errorf("fullmoveCnt out of bounds %d-%d", minFullmoveCnt, maxFullmoveCnt)
 	}
-	position.enPassantSquare = square{1, 1}
+	position.fullmoveCnt = uint16(fullmoveCntNum)
+
+	// placement
+	ranks := strings.Split(placementSegment, "/")
+	if len(ranks) != Ranks {
+		return Position{}, fmt.Errorf("placement segment must be split on %d ranks by '/'", Ranks)
+	}
+	for i, rank := range ranks {
+		var described int32 = 0
+
+		prevSkip := false
+		for _, c := range rank {
+			if p, ok := pieceByChar[c]; ok {
+				pieceSquare := square{
+					file: uint8(described),
+					rank: uint8(i),
+				}
+				puttingErr := position.putPiece(
+					&piece{
+						kind:   p.kind,
+						color:  p.color,
+						square: pieceSquare,
+					},
+					pieceSquare,
+				)
+				if puttingErr != nil {
+					return Position{}, fmt.Errorf("cannot place a piece on a [%d;%d]: %w", described, i, puttingErr)
+				}
+				described++
+				prevSkip = false
+			} else {
+				if prevSkip {
+					return Position{}, fmt.Errorf("rank %d must not contain 2 or more skip numbers in a row", i)
+				}
+				described += c - '0'
+				prevSkip = true
+			}
+		}
+
+		if described != Files {
+			return Position{}, fmt.Errorf("rank %d must describe exactly %d squares", i, Files)
+		}
+	}
 
 	return position, nil
 }

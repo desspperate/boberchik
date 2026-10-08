@@ -7,12 +7,12 @@ import (
 
 const maxPieces = 32
 
-const maxRanks = 8
-const maxFiles = 8
+const Ranks = 8
+const Files = 8
 
 type Position struct {
 	pieces           [maxPieces]*piece
-	board            [maxFiles][maxRanks]*piece
+	board            [Files][Ranks]*piece
 	activeColor      color
 	whiteCastleKing  bool
 	whiteCastleQueen bool
@@ -23,24 +23,24 @@ type Position struct {
 	fullmoveCnt      uint16
 }
 
-func (p *Position) putPiece(piece *piece, s square) error {
-	if s.file >= maxFiles {
+func (p *Position) putPiece(piece *piece, square square) error {
+	if square.file >= Files {
 		return errors.New("file out of bounds")
 	}
-	if s.rank >= maxRanks {
+	if square.rank >= Ranks {
 		return errors.New("rank out of bounds")
 	}
 
-	if p.board[s.file][s.rank] != nil {
-		return fmt.Errorf("square [%d;%d] on a board is already taken", s.file, s.rank)
+	if p.board[square.file][square.rank] != nil {
+		return fmt.Errorf("square [%d;%d] on a board is already taken", square.file, square.rank)
 	}
 
 	for i := range maxPieces {
 		if p.pieces[i] == nil {
-			piece.square.file = s.file
-			piece.square.rank = s.rank
+			piece.square.file = square.file
+			piece.square.rank = square.rank
 			p.pieces[i] = piece
-			p.board[s.file][s.rank] = piece
+			p.board[square.file][square.rank] = piece
 			return nil
 		}
 	}
