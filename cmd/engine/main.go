@@ -1,5 +1,16 @@
 package main
 
-func main() {
+import (
+	"fmt"
+	"log"
 
+	"github.com/desspperate/chess-engine/internal/chess"
+)
+
+func main() {
+	pos, err := chess.DecodeFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(pos.Fen())
 }

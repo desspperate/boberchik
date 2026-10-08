@@ -130,6 +130,13 @@ var pieceByChar = map[rune]pieceDesc{
 	'b': {bishop, black}, 'n': {knight, black}, 'p': {pawn, black},
 }
 
+var charByPiece = map[pieceDesc]rune{
+	{king, white}: 'K', {queen, white}: 'Q', {rook, white}: 'R',
+	{bishop, white}: 'B', {knight, white}: 'N', {pawn, white}: 'P',
+	{king, black}: 'k', {queen, black}: 'q', {rook, black}: 'r',
+	{bishop, black}: 'b', {knight, black}: 'n', {pawn, black}: 'p',
+}
+
 func DecodeFen(fen string) (Position, error) {
 	splitFen := strings.Split(fen, " ")
 	if len(splitFen) != FenSegments {
@@ -158,7 +165,7 @@ func DecodeFen(fen string) (Position, error) {
 
 	position := Position{}
 
-	// activeColor
+	// active color
 	switch activeColorSegment[0] {
 	case 'w':
 		position.activeColor = white
@@ -206,7 +213,7 @@ func DecodeFen(fen string) (Position, error) {
 		}
 	}
 
-	// enPassant
+	// en passant
 	if strings.IndexRune(enPassantSegment, '-') != -1 {
 		if len(enPassantSegment) > 1 {
 			return Position{}, errors.New("enPassant segment contains '-', in that case that must be the only character")
@@ -238,14 +245,14 @@ func DecodeFen(fen string) (Position, error) {
 		}
 	}
 
-	// halfmoveClock
+	// halfmove clock
 	halfmoveClockNum, err := strconv.ParseUint(halfmoveClockSegment, 10, 8)
 	if err != nil || halfmoveClockNum > maxHalfmoveClock {
 		return Position{}, fmt.Errorf("halfmoveClock out of bounds 0-%d", maxHalfmoveClock)
 	}
 	position.halfmoveClock = uint8(halfmoveClockNum)
 
-	// fullmoveCnt
+	// fullmove count
 	fullmoveCntNum, err := strconv.ParseUint(fullmoveCntSegment, 10, 16)
 	if err != nil || fullmoveCntNum < minFullmoveCnt || fullmoveCntNum > maxFullmoveCnt {
 		return Position{}, fmt.Errorf("fullmoveCnt out of bounds %d-%d", minFullmoveCnt, maxFullmoveCnt)
@@ -297,6 +304,79 @@ func DecodeFen(fen string) (Position, error) {
 	return position, nil
 }
 
-func EncodeFen(position Position) (string, error) {
-	return "", errors.New("not implemented")
+var noEnPassantSquare = square{0, 0}
+
+func (pp *Position) Fen() string {
+	// placement
+	ranks := [Ranks]string{}
+	for rank := range uint8(Ranks) {
+		empty := 0
+		for file := range uint8(Files) {
+			p := pp.pieceAt(square{file: file, rank: rank})
+			if p == nil {
+				empty++
+				continue
+			}
+			if empty > 0 {
+				ranks[rank] += string(rune(empty + '0'))
+				empty = 0
+			}
+			ranks[rank] += string(charByPiece[pieceDesc{color: p.color, kind: p.kind}])
+		}
+		if empty > 0 {
+			ranks[rank] += string(rune(empty + '0'))
+		}
+	}
+	placementSegment := strings.Join(ranks[:], "/")
+
+	// active color
+	activeColorSegment := ""
+	if pp.activeColor == white {
+		activeColorSegment = "w"
+	} else if pp.activeColor == black {
+		activeColorSegment = "b"
+	}
+
+	// castling
+	castlingSegment := ""
+	if pp.whiteCastleKing {
+		castlingSegment = "K"
+	}
+	if pp.whiteCastleQueen {
+		castlingSegment += "Q"
+	}
+	if pp.blackCastleKing {
+		castlingSegment += "k"
+	}
+	if pp.blackCastleQueen {
+		castlingSegment += "q"
+	}
+	if castlingSegment == "" {
+		castlingSegment = "-"
+	}
+
+	// en passant
+	enPassantSegment := "-"
+	if pp.enPassantSquare != noEnPassantSquare {
+		enPassantLetter := pp.enPassantSquare.file + 'a'
+		enPassantNumber := '8' - pp.enPassantSquare.rank
+		enPassantSegment = string(enPassantLetter) + string(enPassantNumber)
+	}
+
+	// fullmove count
+	fullmoveCntSegment := strconv.Itoa(int(pp.fullmoveCnt))
+
+	// halfmove clock
+	halfmoveClockSegment := strconv.Itoa(int(pp.halfmoveClock))
+
+	return strings.Join(
+		[]string{
+			placementSegment,
+			activeColorSegment,
+			castlingSegment,
+			enPassantSegment,
+			halfmoveClockSegment,
+			fullmoveCntSegment,
+		}, " ",
+	)
 }

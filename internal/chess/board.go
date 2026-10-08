@@ -23,26 +23,30 @@ type Position struct {
 	fullmoveCnt      uint16
 }
 
-func (p *Position) putPiece(piece *piece, square square) error {
-	if square.file >= Files {
+func (pp *Position) putPiece(p *piece, sq square) error {
+	if sq.file >= Files {
 		return errors.New("file out of bounds")
 	}
-	if square.rank >= Ranks {
+	if sq.rank >= Ranks {
 		return errors.New("rank out of bounds")
 	}
 
-	if p.board[square.file][square.rank] != nil {
-		return fmt.Errorf("square [%d;%d] on a board is already taken", square.file, square.rank)
+	if pp.board[sq.file][sq.rank] != nil {
+		return fmt.Errorf("square [%d;%d] on a board is already taken", sq.file, sq.rank)
 	}
 
 	for i := range maxPieces {
-		if p.pieces[i] == nil {
-			piece.square.file = square.file
-			piece.square.rank = square.rank
-			p.pieces[i] = piece
-			p.board[square.file][square.rank] = piece
+		if pp.pieces[i] == nil {
+			p.square.file = sq.file
+			p.square.rank = sq.rank
+			pp.pieces[i] = p
+			pp.board[sq.file][sq.rank] = p
 			return nil
 		}
 	}
 	return fmt.Errorf("%d pieces already on a board", maxPieces)
+}
+
+func (pp *Position) pieceAt(sq square) *piece {
+	return pp.board[sq.file][sq.rank]
 }
