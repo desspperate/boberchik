@@ -119,7 +119,7 @@ const minFullmoveCnt = 1
 const maxFullmoveCnt = 8849 // https://tomrocksmaths.com/wp-content/uploads/2026/06/longestchessgame-katie-cam.pdf
 
 type pieceDesc struct {
-	kind  kind
+	kind  pieceKind
 	color color
 }
 
@@ -240,8 +240,8 @@ func DecodeFen(fen string) (Position, error) {
 			return Position{}, errors.New("enPassant number segment contains invalid characters")
 		}
 		position.enPassantSquare = square{
-			file: letterSegment - 'a',
-			rank: '8' - numberSegment,
+			file: int8(letterSegment - 'a'),
+			rank: int8('8' - numberSegment),
 		}
 	}
 
@@ -271,8 +271,8 @@ func DecodeFen(fen string) (Position, error) {
 		for _, c := range rank {
 			if p, ok := pieceByChar[c]; ok {
 				pieceSquare := square{
-					file: uint8(described),
-					rank: uint8(i),
+					file: int8(described),
+					rank: int8(i),
 				}
 				puttingErr := position.putPiece(
 					&piece{
@@ -306,13 +306,16 @@ func DecodeFen(fen string) (Position, error) {
 
 var noEnPassantSquare = square{0, 0}
 
-func (pp *Position) Fen() string {
+func (pos *Position) Fen() (string, error) {
 	// placement
 	ranks := [Ranks]string{}
-	for rank := range uint8(Ranks) {
+	for rank := range int8(Ranks) {
 		empty := 0
-		for file := range uint8(Files) {
-			p := pp.pieceAt(square{file: file, rank: rank})
+		for file := range int8(Files) {
+			p, err := pos.pieceAt(square{file: file, rank: rank})
+			if err != nil {
+				return "", fmt.Errorf("FEN encoding failed: %w", err)
+			}
 			if p == nil {
 				empty++
 				continue
@@ -331,24 +334,24 @@ func (pp *Position) Fen() string {
 
 	// active color
 	activeColorSegment := ""
-	if pp.activeColor == white {
+	if pos.activeColor == white {
 		activeColorSegment = "w"
-	} else if pp.activeColor == black {
+	} else if pos.activeColor == black {
 		activeColorSegment = "b"
 	}
 
 	// castling
 	castlingSegment := ""
-	if pp.whiteCastleKing {
+	if pos.whiteCastleKing {
 		castlingSegment = "K"
 	}
-	if pp.whiteCastleQueen {
+	if pos.whiteCastleQueen {
 		castlingSegment += "Q"
 	}
-	if pp.blackCastleKing {
+	if pos.blackCastleKing {
 		castlingSegment += "k"
 	}
-	if pp.blackCastleQueen {
+	if pos.blackCastleQueen {
 		castlingSegment += "q"
 	}
 	if castlingSegment == "" {
@@ -357,17 +360,17 @@ func (pp *Position) Fen() string {
 
 	// en passant
 	enPassantSegment := "-"
-	if pp.enPassantSquare != noEnPassantSquare {
-		enPassantLetter := pp.enPassantSquare.file + 'a'
-		enPassantNumber := '8' - pp.enPassantSquare.rank
+	if pos.enPassantSquare != noEnPassantSquare {
+		enPassantLetter := uint8(pos.enPassantSquare.file) + 'a'
+		enPassantNumber := '8' - uint8(pos.enPassantSquare.rank)
 		enPassantSegment = string(enPassantLetter) + string(enPassantNumber)
 	}
 
 	// fullmove count
-	fullmoveCntSegment := strconv.Itoa(int(pp.fullmoveCnt))
+	fullmoveCntSegment := strconv.Itoa(int(pos.fullmoveCnt))
 
 	// halfmove clock
-	halfmoveClockSegment := strconv.Itoa(int(pp.halfmoveClock))
+	halfmoveClockSegment := strconv.Itoa(int(pos.halfmoveClock))
 
 	return strings.Join(
 		[]string{
@@ -378,5 +381,5 @@ func (pp *Position) Fen() string {
 			halfmoveClockSegment,
 			fullmoveCntSegment,
 		}, " ",
-	)
+	), nil
 }

@@ -1,14 +1,18 @@
 package chess
 
 type square struct {
-	file uint8
-	rank uint8
+	file int8
+	rank int8
 }
 
-type kind byte
+func (sq square) isValid() bool {
+	return !(sq.file < 0 || sq.file >= Files || sq.rank < 0 || sq.rank >= Ranks)
+}
+
+type pieceKind byte
 
 const (
-	king kind = iota
+	king pieceKind = iota
 	pawn
 	queen
 	rook
@@ -23,9 +27,13 @@ const (
 	black
 )
 
+func (c color) opposite() color {
+	return c ^ 1
+}
+
 type piece struct {
-	kind     kind
+	kind     pieceKind
 	color    color
-	Captured bool
+	captured bool
 	square   square
 }
