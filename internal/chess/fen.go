@@ -3,6 +3,7 @@ package chess
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -101,22 +102,6 @@ var segmentSizeBorders = [FenSegments][2]int{
 	halfmoveClock: {1, 3},
 	fullmoveCnt:   {1, 4},
 }
-
-var enPassantLetterSegmentAllowedChars = map[rune]bool{
-	'a': true,
-	'b': true,
-	'c': true,
-	'd': true,
-	'e': true,
-	'f': true,
-	'g': true,
-	'h': true,
-}
-
-const maxHalfmoveClock = 150
-
-const minFullmoveCnt = 1
-const maxFullmoveCnt = 8849 // https://tomrocksmaths.com/wp-content/uploads/2026/06/longestchessgame-katie-cam.pdf
 
 type pieceDesc struct {
 	kind  pieceKind
@@ -224,21 +209,14 @@ func DecodeFen(fen string) (Position, error) {
 		}
 		letterSegment := enPassantSegment[0]
 		numberSegment := enPassantSegment[1]
-		if !enPassantLetterSegmentAllowedChars[rune(letterSegment)] {
+
+		if letterSegment < 'a' || letterSegment > 'h' {
 			return Position{}, errors.New("enPassant letter segment contains invalid characters")
 		}
-		switch numberSegment {
-		case '3':
-			if position.activeColor == white {
-				return Position{}, errors.New("last move was black, so enPassant rank must be 6")
-			}
-		case '6':
-			if position.activeColor == black {
-				return Position{}, errors.New("last move was white, so enPassant rank must be 3")
-			}
-		default:
+		if numberSegment != '3' && numberSegment != '6' {
 			return Position{}, errors.New("enPassant number segment contains invalid characters")
 		}
+
 		position.enPassantSquare = square{
 			file: int8(letterSegment - 'a'),
 			rank: int8('8' - numberSegment),
@@ -247,15 +225,15 @@ func DecodeFen(fen string) (Position, error) {
 
 	// halfmove clock
 	halfmoveClockNum, err := strconv.ParseUint(halfmoveClockSegment, 10, 8)
-	if err != nil || halfmoveClockNum > maxHalfmoveClock {
-		return Position{}, fmt.Errorf("halfmoveClock out of bounds 0-%d", maxHalfmoveClock)
+	if err != nil {
+		return Position{}, fmt.Errorf("halfmoveClock out of uint8 range 0-%d", math.MaxUint8)
 	}
 	position.halfmoveClock = uint8(halfmoveClockNum)
 
 	// fullmove count
 	fullmoveCntNum, err := strconv.ParseUint(fullmoveCntSegment, 10, 16)
-	if err != nil || fullmoveCntNum < minFullmoveCnt || fullmoveCntNum > maxFullmoveCnt {
-		return Position{}, fmt.Errorf("fullmoveCnt out of bounds %d-%d", minFullmoveCnt, maxFullmoveCnt)
+	if err != nil {
+		return Position{}, fmt.Errorf("fullmoveCnt out of uint16 range 0-%d", math.MaxUint16)
 	}
 	position.fullmoveCnt = uint16(fullmoveCntNum)
 
@@ -264,17 +242,25 @@ func DecodeFen(fen string) (Position, error) {
 	if len(ranks) != Ranks {
 		return Position{}, fmt.Errorf("placement segment must be split on %d ranks by '/'", Ranks)
 	}
+	var pieces int32
 	for i, rank := range ranks {
-		var described int32 = 0
+		var described int32
 
 		prevSkip := false
 		for _, c := range rank {
 			if p, ok := pieceByChar[c]; ok {
+				pieces++
+				if pieces > maxPieces {
+					return Position{}, fmt.Errorf("FEN describes more than %d pieces", maxPieces)
+				}
+				if described >= Files {
+					return Position{}, fmt.Errorf("rank %d describes more than %d squares", i, Files)
+				}
 				pieceSquare := square{
 					file: int8(described),
 					rank: int8(i),
 				}
-				puttingErr := position.putPiece(
+				position.putPiece(
 					&piece{
 						kind:   p.kind,
 						color:  p.color,
@@ -282,11 +268,9 @@ func DecodeFen(fen string) (Position, error) {
 					},
 					pieceSquare,
 				)
-				if puttingErr != nil {
-					return Position{}, fmt.Errorf("cannot place a piece on a [%d;%d]: %w", described, i, puttingErr)
-				}
 				described++
 				prevSkip = false
+
 			} else {
 				if prevSkip {
 					return Position{}, fmt.Errorf("rank %d must not contain 2 or more skip numbers in a row", i)
@@ -306,16 +290,13 @@ func DecodeFen(fen string) (Position, error) {
 
 var noEnPassantSquare = square{0, 0}
 
-func (pos *Position) Fen() (string, error) {
+func (pos *Position) Fen() string {
 	// placement
 	ranks := [Ranks]string{}
 	for rank := range int8(Ranks) {
 		empty := 0
 		for file := range int8(Files) {
-			p, err := pos.pieceAt(square{file: file, rank: rank})
-			if err != nil {
-				return "", fmt.Errorf("FEN encoding failed: %w", err)
-			}
+			p := pos.pieceAt(square{file: file, rank: rank})
 			if p == nil {
 				empty++
 				continue
@@ -381,5 +362,5 @@ func (pos *Position) Fen() (string, error) {
 			halfmoveClockSegment,
 			fullmoveCntSegment,
 		}, " ",
-	), nil
+	)
 }

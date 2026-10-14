@@ -6,7 +6,7 @@ type square struct {
 }
 
 func (sq square) isValid() bool {
-	return !(sq.file < 0 || sq.file >= Files || sq.rank < 0 || sq.rank >= Ranks)
+	return sq.file >= 0 && sq.file < Files && sq.rank >= 0 && sq.rank < Ranks
 }
 
 type pieceKind byte

@@ -12,9 +12,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	mvs, err := pos.PseudoLegalMoves()
-	if err != nil {
-		log.Fatal(err)
-	}
+	mvs := pos.PseudoLegalMoves()
 	fmt.Println(len(mvs))
 }

@@ -1,9 +1,5 @@
 package chess
 
-import (
-	"fmt"
-)
-
 type move struct {
 	from      square
 	to        square
@@ -50,14 +46,13 @@ var lateralBlackPawnDeltas = []vector{
 	{-1, 1},
 }
 
-func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
-	p, err := pos.pieceAt(sq)
-	if err != nil {
-		return nil, fmt.Errorf("pseudo legal moves generation for square [%d;%d] failed %w", sq.file, sq.rank, err)
-	}
+func pseudoLegalMoves(pos *Position, sq square) []move {
+	p := pos.pieceAt(sq)
+
 	if p == nil {
-		return nil, nil
+		return nil
 	}
+
 	var mvs []move
 	switch p.kind {
 	case knight:
@@ -66,7 +61,10 @@ func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
 				file: sq.file + d.file,
 				rank: sq.rank + d.rank,
 			}
-			if pp, err := pos.pieceAt(to); err == nil && (pp == nil || pp.color != p.color) {
+			if !to.isValid() {
+				continue
+			}
+			if pp := pos.pieceAt(to); pp == nil || pp.color != p.color {
 				mvs = append(mvs, move{sq, to, noPromotion})
 			}
 		}
@@ -80,7 +78,7 @@ func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
 		case queen:
 			dirs = queenDirections[:]
 		default:
-			return nil, fmt.Errorf("unexpected piece kind on square [%d;%d]", sq.file, sq.rank)
+			panicf(pos, "unexpected piece kind on square %+v", sq)
 		}
 
 		for _, d := range dirs {
@@ -89,7 +87,10 @@ func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
 					file: sq.file + d.file*i,
 					rank: sq.rank + d.rank*i,
 				}
-				if pp, err := pos.pieceAt(to); err == nil && (pp == nil || pp.color != p.color) {
+				if !to.isValid() {
+					break
+				}
+				if pp := pos.pieceAt(to); pp == nil || pp.color != p.color {
 					mvs = append(mvs, move{sq, to, noPromotion})
 					if pp != nil {
 						break
@@ -127,13 +128,13 @@ func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
 			file: sq.file,
 			rank: sq.rank + 1*rankMultiplier,
 		}
-		if pp, _ := pos.pieceAt(to); pp == nil {
+		if pp := pos.pieceAt(to); pp == nil {
 			add(to)
 
 			startRank := (7 - 5*rankMultiplier) / 2
 			if sq.rank == startRank {
 				to.rank += 1 * rankMultiplier
-				if pp, _ := pos.pieceAt(to); pp == nil {
+				if pp := pos.pieceAt(to); pp == nil {
 					mvs = append(mvs, move{sq, to, noPromotion})
 				}
 			}
@@ -144,8 +145,11 @@ func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
 				file: sq.file + d.file,
 				rank: sq.rank + d.rank*rankMultiplier,
 			}
-			pp, err := pos.pieceAt(to)
-			if err == nil && (pp != nil && pp.color != p.color || pos.enPassantSquare == to && pos.enPassantSquare != noEnPassantSquare) {
+			if !to.isValid() {
+				continue
+			}
+			pp := pos.pieceAt(to)
+			if pp != nil && pp.color != p.color || pos.enPassantSquare == to && pos.enPassantSquare != noEnPassantSquare {
 				add(to)
 			}
 		}
@@ -158,13 +162,13 @@ func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
 		for file := filesStart; file <= filesEnd; file++ {
 			for rank := ranksStart; rank <= ranksEnd; rank++ {
 				to := square{file: file, rank: rank}
-				if pp, _ := pos.pieceAt(to); pp == nil || pp.color != p.color {
+				if pp := pos.pieceAt(to); pp == nil || pp.color != p.color {
 					mvs = append(mvs, move{sq, to, noPromotion})
 				}
 			}
 		}
 
-		if safe, _ := pos.isSafe(sq, p.color.opposite()); safe {
+		if pos.isSafe(sq, p.color.opposite()) {
 			var sideMultipliers []int8
 			if p.color == black && pos.blackCastleKing || p.color == white && pos.whiteCastleKing {
 				sideMultipliers = append(sideMultipliers, 1)
@@ -176,7 +180,7 @@ func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
 				var somethingOnPath bool
 				for file := sq.file + 1*multiplier; file > 0 && file < Files-1; file += 1 * multiplier {
 					onPath := square{file: file, rank: sq.rank}
-					if pp, _ := pos.pieceAt(onPath); pp != nil {
+					if pp := pos.pieceAt(onPath); pp != nil {
 						somethingOnPath = true
 						break
 					}
@@ -186,15 +190,16 @@ func pseudoLegalMoves(pos *Position, sq square) ([]move, error) {
 				}
 
 				onPath := square{file: sq.file + 1*multiplier, rank: sq.rank}
-				if safe, _ := pos.isSafe(onPath, p.color.opposite()); safe {
+				if pos.isSafe(onPath, p.color.opposite()) {
 					to := square{file: sq.file + 2*multiplier, rank: sq.rank}
 					mvs = append(mvs, move{sq, to, noPromotion})
 				}
 
 			}
 		}
-
+	default:
+		panicf(pos, "unexpected piece kind on square %+v", sq)
 	}
 
-	return mvs, nil
+	return mvs
 }
