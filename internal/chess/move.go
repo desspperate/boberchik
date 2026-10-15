@@ -78,7 +78,7 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 		case queen:
 			dirs = queenDirections[:]
 		default:
-			panicf(pos, "unexpected piece kind on square %+v", sq)
+			panicf(pos, "unexpected piece kind %+v on square %+v", p.kind, sq)
 		}
 
 		for _, d := range dirs {
@@ -101,14 +101,9 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 			}
 		}
 	case pawn:
-		var rankMultiplier int8
-		if p.color == black {
-			rankMultiplier = 1
-		} else {
-			rankMultiplier = -1
-		}
+		forward := pawnForward[p.color]
 
-		promotionRank := (7 + 7*rankMultiplier) / 2
+		promotionRank := (7 + 7*forward) / 2
 
 		add := func(to square) {
 			if to.rank == promotionRank {
@@ -126,14 +121,14 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 
 		to := square{
 			file: sq.file,
-			rank: sq.rank + 1*rankMultiplier,
+			rank: sq.rank + 1*forward,
 		}
 		if pp := pos.pieceAt(to); pp == nil {
 			add(to)
 
-			startRank := (7 - 5*rankMultiplier) / 2
+			startRank := (7 - 5*forward) / 2
 			if sq.rank == startRank {
-				to.rank += 1 * rankMultiplier
+				to.rank += 1 * forward
 				if pp := pos.pieceAt(to); pp == nil {
 					mvs = append(mvs, move{sq, to, noPromotion})
 				}
@@ -143,7 +138,7 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 		for _, d := range lateralBlackPawnDeltas {
 			to := square{
 				file: sq.file + d.file,
-				rank: sq.rank + d.rank*rankMultiplier,
+				rank: sq.rank + d.rank*forward,
 			}
 			if !to.isValid() {
 				continue
@@ -198,7 +193,7 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 			}
 		}
 	default:
-		panicf(pos, "unexpected piece kind on square %+v", sq)
+		panicf(pos, "unexpected piece kind %+v on square %+v", p.kind, sq)
 	}
 
 	return mvs
