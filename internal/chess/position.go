@@ -272,13 +272,6 @@ func (pos *Position) make(m move) undoInfo {
 		panicf(pos, "illegal promotion %+v", m)
 	}
 
-	ud := undoInfo{
-		move:            m,
-		castleRights:    pos.castleRights,
-		enPassantSquare: pos.enPassantSquare,
-		halfmoveClock:   pos.halfmoveClock,
-	}
-
 	p := pos.pieceAt(m.from)
 	if debug {
 		if p == nil {
@@ -289,6 +282,14 @@ func (pos *Position) make(m move) undoInfo {
 			panicf(pos, "piece of inactive color at from sq %+v", m)
 		}
 	}
+	ud := undoInfo{
+		castleRights:    pos.castleRights,
+		enPassantSquare: pos.enPassantSquare,
+		halfmoveClock:   pos.halfmoveClock,
+	}
+	ud.movedPiece.from = m.from
+	ud.movedPiece.piece = p
+	ud.movedPiece.promotion = m.promotion
 	isPawnMove := p.kind == pawn
 
 	atToSq := pos.pieceAt(m.to)
@@ -335,6 +336,8 @@ func (pos *Position) make(m move) undoInfo {
 		pos.board[rookSq.file][rookSq.rank] = nil
 		atRookSq.square = square{file: p.square.file + 1*dir, rank: rookSq.rank}
 		pos.board[atRookSq.square.file][atRookSq.square.rank] = atRookSq
+		ud.castleRook.rook = atRookSq
+		ud.castleRook.from = rookSq
 	} else if p.kind == pawn && m.to == pos.enPassantSquare && pos.enPassantSquare != noEnPassantSquare {
 		aboveEnPassantSq := square{file: m.to.file, rank: m.from.rank}
 		aboveEnPassant := pos.pieceAt(aboveEnPassantSq)
@@ -402,5 +405,29 @@ func (pos *Position) make(m move) undoInfo {
 }
 
 func (pos *Position) unmake(ud undoInfo) {
+	pos.castleRights = ud.castleRights
+	pos.enPassantSquare = ud.enPassantSquare
+	pos.halfmoveClock = ud.halfmoveClock
+	if pos.activeColor == black.opposite() {
+		pos.fullmoveCnt -= 1
+	}
+	pos.activeColor = pos.activeColor.opposite()
 
+	if ud.castleRook.rook != nil {
+		pos.board[ud.castleRook.rook.square.file][ud.castleRook.rook.square.rank] = nil
+		ud.castleRook.rook.square = ud.castleRook.from
+		pos.board[ud.castleRook.from.file][ud.castleRook.from.rank] = ud.castleRook.rook
+	}
+
+	pos.board[ud.movedPiece.piece.square.file][ud.movedPiece.piece.square.rank] = nil
+	ud.movedPiece.piece.square = ud.movedPiece.from
+	pos.board[ud.movedPiece.from.file][ud.movedPiece.from.rank] = ud.movedPiece.piece
+	if ud.movedPiece.promotion != noPromotion {
+		ud.movedPiece.piece.kind = pawn
+	}
+
+	if ud.capturedPiece != nil {
+		ud.capturedPiece.captured = false
+		pos.board[ud.capturedPiece.square.file][ud.capturedPiece.square.rank] = ud.capturedPiece
+	}
 }

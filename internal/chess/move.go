@@ -7,11 +7,20 @@ type move struct {
 }
 
 type undoInfo struct {
-	move            move
 	castleRights    [2][2]bool
-	capturedPiece   *piece
 	enPassantSquare square
 	halfmoveClock   uint8
+
+	movedPiece struct {
+		from      square
+		piece     *piece
+		promotion pieceKind
+	}
+	capturedPiece *piece
+	castleRook    struct {
+		from square
+		rook *piece
+	}
 }
 
 const noPromotion = king
