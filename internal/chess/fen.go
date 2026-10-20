@@ -164,37 +164,24 @@ func DecodeFen(fen string) (Position, error) {
 			return Position{}, errors.New("castling segment contains '-', in that case that must be the only character")
 		}
 	}
-	for _, c := range castlingSegment {
-		switch c {
-		case 'K':
-			if position.whiteCastleKing {
-				return Position{}, errors.New("castling segment contains 'K' more than once")
+	for _, ch := range castlingSegment {
+		for _, c := range colors {
+			for i, letter := range castleLetters[c] {
+				if ch != letter {
+					continue
+				}
+				if position.castleRights[c][i] {
+					return Position{}, fmt.Errorf("castling segment contains '%c' more than once", ch)
+				}
+				for _, laterC := range colors {
+					for laterI := range position.castleRights[laterC] {
+						if laterC*2+color(laterI) > c*2+color(i) && position.castleRights[laterC][laterI] {
+							return Position{}, fmt.Errorf("'%c' is not in a right order, right order for castling segment \"KQkq\"", ch)
+						}
+					}
+				}
+				position.castleRights[c][i] = true
 			}
-			if position.whiteCastleQueen || position.blackCastleKing || position.blackCastleQueen {
-				return Position{}, errors.New("'K' is not in a right order, right order for castling segment \"KQkq\"")
-			}
-			position.whiteCastleKing = true
-		case 'Q':
-			if position.whiteCastleQueen {
-				return Position{}, errors.New("castling segment contains 'Q' more than once")
-			}
-			if position.blackCastleKing || position.blackCastleQueen {
-				return Position{}, errors.New("'Q' is not in a right order, right order for castling segment \"KQkq\"")
-			}
-			position.whiteCastleQueen = true
-		case 'k':
-			if position.blackCastleKing {
-				return Position{}, errors.New("castling segment contains 'k' more than once")
-			}
-			if position.blackCastleQueen {
-				return Position{}, errors.New("'k' is not in a right order, right order for castling segment \"KQkq\"")
-			}
-			position.blackCastleKing = true
-		case 'q':
-			if position.blackCastleQueen {
-				return Position{}, errors.New("castling segment contains 'q' more than once")
-			}
-			position.blackCastleQueen = true
 		}
 	}
 
@@ -323,17 +310,12 @@ func (pos *Position) Fen() string {
 
 	// castling
 	castlingSegment := ""
-	if pos.whiteCastleKing {
-		castlingSegment = "K"
-	}
-	if pos.whiteCastleQueen {
-		castlingSegment += "Q"
-	}
-	if pos.blackCastleKing {
-		castlingSegment += "k"
-	}
-	if pos.blackCastleQueen {
-		castlingSegment += "q"
+	for _, c := range colors {
+		for i, r := range pos.castleRights[c] {
+			if r {
+				castlingSegment += string(castleLetters[c][i])
+			}
+		}
 	}
 	if castlingSegment == "" {
 		castlingSegment = "-"

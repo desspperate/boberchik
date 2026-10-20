@@ -6,6 +6,14 @@ type move struct {
 	promotion pieceKind
 }
 
+type undoInfo struct {
+	move            move
+	castleRights    [2][2]bool
+	capturedPiece   *piece
+	enPassantSquare square
+	halfmoveClock   uint8
+}
+
 const noPromotion = king
 
 type vector square
@@ -165,11 +173,10 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 
 		if pos.isSafe(sq, p.color.opposite()) {
 			var sideMultipliers []int8
-			if p.color == black && pos.blackCastleKing || p.color == white && pos.whiteCastleKing {
-				sideMultipliers = append(sideMultipliers, 1)
-			}
-			if p.color == black && pos.blackCastleQueen || p.color == white && pos.whiteCastleQueen {
-				sideMultipliers = append(sideMultipliers, -1)
+			for i, multiplier := range [2]int8{1, -1} {
+				if pos.castleRights[p.color][i] {
+					sideMultipliers = append(sideMultipliers, multiplier)
+				}
 			}
 			for _, multiplier := range sideMultipliers {
 				var somethingOnPath bool
