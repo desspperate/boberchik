@@ -19,6 +19,7 @@ type Position struct {
 	enPassantSquare square
 	halfmoveClock   uint8
 	fullmoveCnt     uint16
+	kings           [2]*piece
 }
 
 func (pos *Position) putPiece(p *piece, sq square) {
@@ -31,6 +32,9 @@ func (pos *Position) putPiece(p *piece, sq square) {
 
 	for i := range maxPieces {
 		if pos.pieces[i] == nil {
+			if p.kind == king {
+				pos.kings[p.color] = p
+			}
 			p.square.file = sq.file
 			p.square.rank = sq.rank
 			pos.pieces[i] = p
@@ -128,6 +132,24 @@ var castleSide = []string{0: "king", 1: "queen"}
 var castleLetters = [2][2]rune{white: {'K', 'Q'}, black: {'k', 'q'}}
 
 var enPassantRanks = [2]int8{white: 5, black: 2}
+
+func (pos *Position) generateMoves() []move {
+	var ms []move
+	for _, p := range pos.pieces {
+		if p == nil || p.color == pos.activeColor.opposite() || p.captured {
+			continue
+		}
+		plms := pseudoLegalMoves(pos, p.square)
+		for _, m := range plms {
+			ud := pos.make(m)
+			if pos.isSafe(pos.kings[pos.activeColor.opposite()].square, pos.activeColor) {
+				ms = append(ms, m)
+			}
+			pos.unmake(ud)
+		}
+	}
+	return ms
+}
 
 func (pos *Position) Validate() error {
 	if pos.halfmoveClock > maxHalfmoveClock {
@@ -241,19 +263,6 @@ func (pos *Position) Validate() error {
 	}
 
 	return nil
-}
-
-func (pos *Position) PseudoLegalMoves() []move {
-	var mvs []move
-	for _, p := range pos.pieces {
-		if p != nil && pos.activeColor == p.color && !p.captured {
-			pms := pseudoLegalMoves(pos, p.square)
-			if pms != nil {
-				mvs = append(mvs, pms...)
-			}
-		}
-	}
-	return mvs
 }
 
 func (pos *Position) make(m move) undoInfo {
