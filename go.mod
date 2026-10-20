@@ -1,3 +1,3 @@
-module github.com/desspperate/chess-engine
+module github.com/desspperate/boberchik
 
 go 1.26.0
