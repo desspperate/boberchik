@@ -117,7 +117,7 @@ func perft(pos *Position, depth int) uint64 {
 			before = pos.Fen()
 		}
 
-		ud := pos.make(m)
+		ud := pos.Make(m)
 		nodes += perft(pos, depth-1)
 		pos.unmake(ud)
 
@@ -138,7 +138,7 @@ func divideString(pos *Position, depth int) string {
 	var rows []row
 	var total uint64
 	for _, m := range pos.generateMoves() {
-		ud := pos.make(m)
+		ud := pos.Make(m)
 		n := perft(pos, depth-1)
 		pos.unmake(ud)
 

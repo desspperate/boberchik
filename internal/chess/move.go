@@ -6,6 +6,8 @@ type move struct {
 	promotion pieceKind
 }
 
+var NoMove = move{}
+
 type undoInfo struct {
 	castleRights    [2][2]bool
 	enPassantSquare square

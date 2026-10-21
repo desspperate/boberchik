@@ -136,12 +136,12 @@ var enPassantRanks = [2]int8{white: 5, black: 2}
 func (pos *Position) generateMoves() []move {
 	var ms []move
 	for _, p := range pos.pieces {
-		if p == nil || p.color == pos.activeColor.opposite() || p.captured {
+		if p == nil || p.color != pos.activeColor || p.captured {
 			continue
 		}
 		plms := pseudoLegalMoves(pos, p.square)
 		for _, m := range plms {
-			ud := pos.make(m)
+			ud := pos.Make(m)
 			if pos.isSafe(pos.kings[pos.activeColor.opposite()].square, pos.activeColor) {
 				ms = append(ms, m)
 			}
@@ -265,7 +265,7 @@ func (pos *Position) Validate() error {
 	return nil
 }
 
-func (pos *Position) make(m move) undoInfo {
+func (pos *Position) Make(m move) undoInfo {
 	if debug {
 		if err := pos.Validate(); err != nil {
 			panicf(pos, "invalid position: %v", err)
