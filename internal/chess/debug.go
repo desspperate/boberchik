@@ -2,7 +2,7 @@ package chess
 
 import "fmt"
 
-const debug = true
+const debug = false
 
 var outer string
 

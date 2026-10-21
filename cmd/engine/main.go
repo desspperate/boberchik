@@ -10,7 +10,7 @@ import (
 var toColor = [2]string{"white", "black"}
 
 func main() {
-	pos, err := chess.DecodeFen("1k1K4/8/8/8/6R1/8/8/8 w - - 0 1")
+	pos, err := chess.DecodeFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -23,11 +23,15 @@ func main() {
 		move := pos.BestMove()
 		if move == chess.NoMove {
 			i += 1
-			fmt.Printf("No move at halfmove %d\n", i)
+			fmt.Printf("No move at halfmove, %s win %d. FEN: %s\n", toColor[i%2], i, pos.Fen())
+			return
+		}
+		if i == 9000 {
+			fmt.Printf("Draw by limit. FEN: %s\n", pos.Fen())
 			return
 		}
 		pos.Make(move)
-		fmt.Printf("the best move for %s: %+v\n", toColor[i%2], move)
+		fmt.Printf("the best move for %s: %+v\n. FEN: %s\n", toColor[i%2], move, pos.Fen())
 		i++
 	}
 }
