@@ -1,11 +1,12 @@
 package chess
 
 var pieceValue = [6]int32{
-	pawn:   1,
-	knight: 3,
-	bishop: 3,
-	rook:   5,
-	queen:  9,
+	king:   0,
+	pawn:   100,
+	knight: 330,
+	bishop: 350,
+	rook:   500,
+	queen:  900,
 }
 
 func (pos *Position) evaluation() int32 {
@@ -14,7 +15,11 @@ func (pos *Position) evaluation() int32 {
 		if p == nil || p.captured || p.kind == king {
 			continue
 		}
-		r += pieceValue[p.kind] * (1 - 2*int32(p.color))
+		rank := p.square.rank
+		if p.color == black {
+			rank = 7 - rank
+		}
+		r += (pieceValue[p.kind] + pst[p.kind][p.square.file][rank]) * (1 - 2*int32(p.color))
 	}
 	return r
 }
