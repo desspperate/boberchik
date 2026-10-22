@@ -1,6 +1,45 @@
 package chess
 
-import "math"
+import (
+	"math"
+)
+
+func (pos *Position) scoredMoves() ([]Move, []int32) {
+	var plms []Move
+	var mvvlvas []int32
+	for _, p := range pos.pieces {
+		if p == nil || p.color != pos.activeColor || p.captured {
+			continue
+		}
+		for _, m := range pseudoLegalMoves(pos, p.square) {
+			a := pos.pieceAt(m.from)
+			v := pos.pieceAt(m.to)
+
+			mvvlva := int32(math.MaxInt32)
+			if v != nil {
+				mvvlva = pieceValue[a.kind] - 10*pieceValue[v.kind]
+			} else if a.kind == pawn && pos.enPassantSquare != noEnPassantSquare && m.to == pos.enPassantSquare {
+				mvvlva = pieceValue[a.kind] - 10*pieceValue[pawn]
+			}
+			plms = append(plms, m)
+			mvvlvas = append(mvvlvas, mvvlva)
+		}
+	}
+	return plms, mvvlvas
+}
+
+func pickNext[T any](arr []T, scores []int32, start int) T {
+	best := start
+	for i := start + 1; i < len(arr); i++ {
+		if scores[i] < scores[best] {
+			best = i
+		}
+	}
+	arr[start], arr[best] = arr[best], arr[start]
+	scores[start], scores[best] = scores[best], scores[start]
+
+	return arr[start]
+}
 
 func (pos *Position) BestMove(depth int32) Move {
 	moveColor := pos.activeColor
@@ -14,35 +53,33 @@ func (pos *Position) BestMove(depth int32) Move {
 		r.eval = math.MaxInt32
 	}
 
-	for _, p := range pos.pieces {
-		if p == nil || p.color != pos.activeColor || p.captured {
+	plms, mvvlvas := pos.scoredMoves()
+	var m Move
+	for i := range plms {
+		m = pickNext(plms, mvvlvas, i)
+
+		ud := pos.Make(m)
+		if !pos.isSafe(pos.kings[moveColor].square, moveColor.opposite()) {
+			pos.unmake(ud)
 			continue
 		}
-		plms := pseudoLegalMoves(pos, p.square)
-
-		for _, m := range plms {
-			ud := pos.Make(m)
-			if !pos.isSafe(pos.kings[moveColor].square, moveColor.opposite()) {
-				pos.unmake(ud)
-				continue
+		if moveColor == white {
+			eval := pos.alphaBeta(depth-1, 1, r.eval, math.MaxInt32)
+			if r.move == NoMove || eval > r.eval {
+				r.eval = eval
+				r.move = m
 			}
-			if moveColor == white {
-				eval := pos.alphaBeta(depth-1, 1, r.eval, math.MaxInt32)
-				if r.move == NoMove || eval > r.eval {
-					r.eval = eval
-					r.move = m
-				}
-			} else {
-				eval := pos.alphaBeta(depth-1, 1, math.MinInt32, r.eval)
-				if r.move == NoMove || eval < r.eval {
-					r.eval = eval
-					r.move = m
-				}
+		} else {
+			eval := pos.alphaBeta(depth-1, 1, math.MinInt32, r.eval)
+			if r.move == NoMove || eval < r.eval {
+				r.eval = eval
+				r.move = m
 			}
-
-			pos.unmake(ud)
 		}
+
+		pos.unmake(ud)
 	}
+
 	return r.move
 }
 
@@ -68,46 +105,40 @@ func (pos *Position) alphaBeta(depth int32, ply int32, alpha int32, beta int32) 
 		r = math.MaxInt32
 	}
 
-	var mvCnt int
-	for _, p := range pos.pieces {
-		if p == nil || p.color != pos.activeColor || p.captured {
+	plms, mvvlvas := pos.scoredMoves()
+
+	var (
+		mvCnt int
+		m     Move
+	)
+	for i := range plms {
+		m = pickNext(plms, mvvlvas, i)
+
+		ud := pos.Make(m)
+		if !pos.isSafe(pos.kings[moveColor].square, moveColor.opposite()) {
+			pos.unmake(ud)
 			continue
 		}
-		plms := pseudoLegalMoves(pos, p.square)
+		mvCnt++
 
-		flag := false
-		for _, m := range plms {
-			ud := pos.Make(m)
-			if !pos.isSafe(pos.kings[moveColor].square, moveColor.opposite()) {
+		eval := pos.alphaBeta(depth-1, ply+1, alpha, beta)
+		if moveColor == white {
+			r = max(r, eval)
+			alpha = max(alpha, eval)
+			if r >= beta {
 				pos.unmake(ud)
-				continue
+				break
 			}
-			mvCnt++
-
-			eval := pos.alphaBeta(depth-1, ply+1, alpha, beta)
-			if moveColor == white {
-				r = max(r, eval)
-				alpha = max(alpha, eval)
-				if r >= beta {
-					flag = true
-					pos.unmake(ud)
-					break
-				}
-			} else {
-				r = min(r, eval)
-				beta = min(beta, eval)
-				if r <= alpha {
-					flag = true
-					pos.unmake(ud)
-					break
-				}
+		} else {
+			r = min(r, eval)
+			beta = min(beta, eval)
+			if r <= alpha {
+				pos.unmake(ud)
+				break
 			}
+		}
 
-			pos.unmake(ud)
-		}
-		if flag {
-			break
-		}
+		pos.unmake(ud)
 	}
 
 	if mvCnt == 0 {

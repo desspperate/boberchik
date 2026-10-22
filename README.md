@@ -1,6 +1,6 @@
 # Boberchik the chess engine
-build boberchik: go build -o boberchik ./cmd/engine
-play against boberchik if online: https://lichess.org/@/BoberchikBot
+- build boberchik: go build -o boberchik ./cmd/engine
+- play against boberchik if online: https://lichess.org/@/BoberchikBot
 
 ### Tests and Benches
 - run tests: go test ./internal/chess
