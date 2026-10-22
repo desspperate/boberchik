@@ -123,7 +123,7 @@ func perft(pos *Position, depth int) uint64 {
 
 		if debug {
 			if after := pos.Fen(); after != before {
-				panicf(pos, "unmake mismatch after %s\nbefore: %s\nafter:  %s", moveString(m), before, after)
+				panicf(pos, "unmake mismatch after %s\nbefore: %s\nafter:  %s", m.String(), before, after)
 			}
 		}
 	}
@@ -142,7 +142,7 @@ func divideString(pos *Position, depth int) string {
 		n := perft(pos, depth-1)
 		pos.unmake(ud)
 
-		rows = append(rows, row{moveString(m), n})
+		rows = append(rows, row{m.String(), n})
 		total += n
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].move < rows[j].move })
@@ -152,24 +152,5 @@ func divideString(pos *Position, depth int) string {
 		s += fmt.Sprintf("%s: %d\n", r.move, r.nodes)
 	}
 	s += fmt.Sprintf("\nmoves: %d, nodes: %d\n", len(rows), total)
-	return s
-}
-
-// moveString returns the move in UCI notation (e2e4, e7e8q), the same format Stockfish prints.
-func moveString(m move) string {
-	sq := func(s square) string {
-		return string(rune('a'+s.file)) + string(rune('8'-s.rank))
-	}
-	s := sq(m.from) + sq(m.to)
-	switch m.promotion {
-	case queen:
-		s += "q"
-	case rook:
-		s += "r"
-	case bishop:
-		s += "b"
-	case knight:
-		s += "n"
-	}
 	return s
 }

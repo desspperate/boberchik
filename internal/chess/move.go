@@ -1,12 +1,14 @@
 package chess
 
-type move struct {
+import "fmt"
+
+type Move struct {
 	from      square
 	to        square
 	promotion pieceKind
 }
 
-var NoMove = move{}
+var NoMove = Move{}
 
 type undoInfo struct {
 	castleRights    [2][2]bool
@@ -65,14 +67,14 @@ var lateralBlackPawnDeltas = []vector{
 	{-1, 1},
 }
 
-func pseudoLegalMoves(pos *Position, sq square) []move {
+func pseudoLegalMoves(pos *Position, sq square) []Move {
 	p := pos.pieceAt(sq)
 
 	if p == nil {
 		return nil
 	}
 
-	var mvs []move
+	var mvs []Move
 	switch p.kind {
 	case knight:
 		for _, d := range knightDeltas {
@@ -84,7 +86,7 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 				continue
 			}
 			if pp := pos.pieceAt(to); pp == nil || pp.color != p.color {
-				mvs = append(mvs, move{sq, to, noPromotion})
+				mvs = append(mvs, Move{sq, to, noPromotion})
 			}
 		}
 	case bishop, rook, queen:
@@ -110,7 +112,7 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 					break
 				}
 				if pp := pos.pieceAt(to); pp == nil || pp.color != p.color {
-					mvs = append(mvs, move{sq, to, noPromotion})
+					mvs = append(mvs, Move{sq, to, noPromotion})
 					if pp != nil {
 						break
 					}
@@ -128,13 +130,13 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 			if to.rank == promotionRank {
 				mvs = append(
 					mvs,
-					move{sq, to, knight},
-					move{sq, to, bishop},
-					move{sq, to, rook},
-					move{sq, to, queen},
+					Move{sq, to, knight},
+					Move{sq, to, bishop},
+					Move{sq, to, rook},
+					Move{sq, to, queen},
 				)
 			} else {
-				mvs = append(mvs, move{sq, to, noPromotion})
+				mvs = append(mvs, Move{sq, to, noPromotion})
 			}
 		}
 
@@ -149,7 +151,7 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 			if sq.rank == startRank {
 				to.rank += 1 * forward
 				if pp := pos.pieceAt(to); pp == nil {
-					mvs = append(mvs, move{sq, to, noPromotion})
+					mvs = append(mvs, Move{sq, to, noPromotion})
 				}
 			}
 		}
@@ -177,7 +179,7 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 			for rank := ranksStart; rank <= ranksEnd; rank++ {
 				to := square{file: file, rank: rank}
 				if pp := pos.pieceAt(to); pp == nil || pp.color != p.color {
-					mvs = append(mvs, move{sq, to, noPromotion})
+					mvs = append(mvs, Move{sq, to, noPromotion})
 				}
 			}
 		}
@@ -205,7 +207,7 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 				onPath := square{file: sq.file + 1*multiplier, rank: sq.rank}
 				if pos.isSafe(onPath, p.color.opposite()) {
 					to := square{file: sq.file + 2*multiplier, rank: sq.rank}
-					mvs = append(mvs, move{sq, to, noPromotion})
+					mvs = append(mvs, Move{sq, to, noPromotion})
 				}
 
 			}
@@ -215,4 +217,33 @@ func pseudoLegalMoves(pos *Position, sq square) []move {
 	}
 
 	return mvs
+}
+
+// String returns the move in UCI notation (e2e4, e7e8q).
+func (m Move) String() string {
+	sq := func(s square) string {
+		return string(rune('a'+s.file)) + string(rune('8'-s.rank))
+	}
+	s := sq(m.from) + sq(m.to)
+	switch m.promotion {
+	case queen:
+		s += "q"
+	case rook:
+		s += "r"
+	case bishop:
+		s += "b"
+	case knight:
+		s += "n"
+	}
+	return s
+}
+
+// ParseMove finds the legal move written in UCI notation (e2e4, e7e8q) in the position.
+func (pos *Position) ParseMove(s string) (Move, error) {
+	for _, m := range pos.generateMoves() {
+		if m.String() == s {
+			return m, nil
+		}
+	}
+	return NoMove, fmt.Errorf("move %q is not legal in %s", s, pos.Fen())
 }

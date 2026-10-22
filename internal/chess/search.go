@@ -2,12 +2,10 @@ package chess
 
 import "math"
 
-const searchDepth = 7
-
-func (pos *Position) BestMove() move {
+func (pos *Position) BestMove(depth int32) Move {
 	moveColor := pos.activeColor
 	var r struct {
-		move move
+		move Move
 		eval int32
 	}
 	if moveColor == white {
@@ -29,13 +27,13 @@ func (pos *Position) BestMove() move {
 				continue
 			}
 			if moveColor == white {
-				eval := pos.alphaBeta(searchDepth-1, 1, r.eval, math.MaxInt32)
+				eval := pos.alphaBeta(depth-1, 1, r.eval, math.MaxInt32)
 				if r.move == NoMove || eval > r.eval {
 					r.eval = eval
 					r.move = m
 				}
 			} else {
-				eval := pos.alphaBeta(searchDepth-1, 1, math.MinInt32, r.eval)
+				eval := pos.alphaBeta(depth-1, 1, math.MinInt32, r.eval)
 				if r.move == NoMove || eval < r.eval {
 					r.eval = eval
 					r.move = m

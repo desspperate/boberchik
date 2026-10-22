@@ -133,8 +133,8 @@ var castleLetters = [2][2]rune{white: {'K', 'Q'}, black: {'k', 'q'}}
 
 var enPassantRanks = [2]int8{white: 5, black: 2}
 
-func (pos *Position) generateMoves() []move {
-	var ms []move
+func (pos *Position) generateMoves() []Move {
+	var ms []Move
 	for _, p := range pos.pieces {
 		if p == nil || p.color != pos.activeColor || p.captured {
 			continue
@@ -265,7 +265,7 @@ func (pos *Position) Validate() error {
 	return nil
 }
 
-func (pos *Position) Make(m move) undoInfo {
+func (pos *Position) Make(m Move) undoInfo {
 	if debug {
 		if err := pos.Validate(); err != nil {
 			panicf(pos, "invalid position: %v", err)
