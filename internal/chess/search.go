@@ -51,6 +51,10 @@ func (pos *Position) BestMove() move {
 func (pos *Position) alphaBeta(depth int32, ply int32, alpha int32, beta int32) int32 {
 	moveColor := pos.activeColor
 
+	// 50-halfmove = draw by chess rules
+	if pos.halfmoveClock > 100 {
+		return 0
+	}
 	if depth == 0 {
 		inCheck := !pos.isSafe(pos.kings[moveColor].square, moveColor.opposite())
 		if !inCheck {
